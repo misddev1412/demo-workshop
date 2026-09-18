@@ -1,0 +1,44 @@
+[
+  {
+    "id": "5f0d8013-edde-4003-96fa-4687e34de606",
+    "old": "túi vải",
+    "name": "Túi tote vải Everyday",
+    "price": 80000,
+    "image_url": "https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=1000&q=85"
+  },
+  {
+    "id": "a2a10ad6-b29d-4211-8986-ba43a5812a03",
+    "old": "sổ tay",
+    "name": "Sổ tay lò xo The Little Things",
+    "price": 45000,
+    "image_url": "https://images.unsplash.com/photo-1531346878377-a5be20888e57?auto=format&fit=crop&w=1000&q=85"
+  },
+  {
+    "id": "c2723f95-bf79-4722-a261-20c95fc13518",
+    "old": "bình nước",
+    "name": "Bình nước Daily xanh lá",
+    "price": 120000,
+    "image_url": "https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=1000&q=85"
+  },
+  {
+    "id": "e3142ef2-984e-453b-a6e8-fdc823ae21bb",
+    "old": "sticker",
+    "name": "Sticker trang trí Color Stories",
+    "price": 20000,
+    "image_url": "https://images.unsplash.com/photo-1625768376503-68d2495d78c5?auto=format&fit=crop&w=1000&q=85"
+  },
+  {
+    "id": "ee2ad5be-395d-47c4-ad1a-da54692d30e9",
+    "old": "hộp bút",
+    "name": "Hộp bút vải khóa kéo Everyday",
+    "price": 55000,
+    "image_url": "https://images.unsplash.com/photo-1632822300275-9867abf24bbe?auto=format&fit=crop&w=1000&q=85"
+  },
+  {
+    "id": "fb14fe13-92ae-49db-9eff-03b04e2df504",
+    "old": "bút bi",
+    "name": "Bút bi đen Minimal",
+    "price": 15000,
+    "image_url": "https://images.unsplash.com/photo-1597754255094-6f952470f88a?auto=format&fit=crop&w=1000&q=85"
+  }
+]

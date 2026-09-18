@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { fetchProducts, restoreCart, type Product, type Cart } from "../lib/products";
 
 type IconName = "bag" | "search" | "arrow" | "leaf" | "truck" | "return" | "heart" | "close" | "plus" | "minus" | "check";
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
@@ -17,24 +18,29 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
-const products = [
-  { id: 1, name: "Túi tote Everyday", category: "Phụ kiện", price: 189000, old: 229000, image: "photo-1544816155-12df9643f363", note: "Người bạn đồng hành mỗi ngày", badge: "Bán chạy", colors: ["#d6c8ac", "#4d574b", "#353432"] },
-  { id: 2, name: "Ly gốm An Nhiên", category: "Nhà & Đời sống", price: 159000, old: 0, image: "photo-1514228742587-6b1558fcca3d", note: "Một chút bình yên trong tay", badge: "", colors: ["#ded6c7", "#b68464", "#768071"] },
-  { id: 3, name: "Bình giữ nhiệt Daily", category: "Phụ kiện", price: 289000, old: 349000, image: "photo-1602143407151-7111542de6e8", note: "Giữ trọn sự tươi mát, suốt ngày dài", badge: "−17%", colors: ["#9eac97", "#dfd8cc", "#373c38"] },
-  { id: 4, name: "Nến thơm Slow Sunday", category: "Nhà & Đời sống", price: 219000, old: 0, image: "photo-1603006905003-be475563bc59", note: "Hương gỗ ấm, cho ngày thảnh thơi", badge: "Mới", colors: ["#e4d6bb", "#a57954"] },
-  { id: 5, name: "Sổ tay The Little Things", category: "Văn phòng phẩm", price: 89000, old: 119000, image: "photo-1531346878377-a5be20888e57", note: "Lưu lại những điều nhỏ bé", badge: "", colors: ["#afad8f", "#ceab92", "#d9cdb8"] },
-  { id: 6, name: "Chậu cây Góc Xanh", category: "Nhà & Đời sống", price: 179000, old: 0, image: "photo-1485955900006-10f4d324d411", note: "Mang một chút thiên nhiên về nhà", badge: "Yêu thích", colors: ["#c8a58b", "#e1dcd2"] },
-];
 const money = (amount: number) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
 const photo = (id: string, width = 700) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${width}&q=85`;
-type Cart = Record<number, number>;
+function ProductImage({ product }: { product: Product }) {
+  const [failed, setFailed] = useState(false);
+  const valid = product.image_url && /^https?:\/\//.test(product.image_url);
+  return valid && !failed ? <Image src={product.image_url!} alt={product.name} fill unoptimized sizes="(max-width: 700px) 50vw, 33vw" onError={() => setFailed(true)}/> : <span className="image-placeholder">Chưa có ảnh</span>;
+}
 
 export default function Home() {
-  const [category, setCategory] = useState("Tất cả");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  const [detail, setDetail] = useState<Product | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
+  const detailDialog = useRef<HTMLDialogElement>(null);
+  const detailRequest = useRef<AbortController | null>(null);
+  const detailId = useRef("");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("featured");
   const [cart, setCart] = useState<Cart>({});
-  const [favorites, setFavorites] = useState<number[]>([]);
+  const [favorites, setFavorites] = useState<string[]>([]);
   const [toast, setToast] = useState("");
   const [ready, setReady] = useState(false);
   const [ordered, setOrdered] = useState(false);
@@ -42,26 +48,44 @@ export default function Home() {
   const dialog = useRef<HTMLDialogElement>(null);
   const search = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    const controller = new AbortController();
+    fetchProducts({ signal: controller.signal }).then(rows => {
+      if (controller.signal.aborted) return;
+      setProducts(rows);
+      try { setCart(restoreCart(JSON.parse(localStorage.getItem("moc-cart") || "{}"), rows)); } catch { setCart({}); }
+      setReady(true);
+    }).catch(cause => {
+      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Không thể tải sản phẩm.");
+    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [attempt]);
+  useEffect(() => () => detailRequest.current?.abort(), []);
+  function retry() { setLoading(true); setError(""); setAttempt(value => value + 1); }
+  async function openDetail(id: string) {
+    detailRequest.current?.abort();
+    const controller = new AbortController();
+    detailRequest.current = controller;
+    detailId.current = id;
+    setDetail(null); setDetailError(""); setDetailLoading(true);
+    if (!detailDialog.current?.open) detailDialog.current?.showModal();
     try {
-      const saved = JSON.parse(localStorage.getItem("moc-cart") || "{}");
-      if (saved && typeof saved === "object") {
-        const valid: Cart = {};
-        products.forEach(p => { if (Number.isInteger(saved[p.id]) && saved[p.id] > 0) valid[p.id] = Math.min(saved[p.id], 99); });
-        setCart(valid);
-      }
-    } catch { /* A new cart is available even if storage is unavailable. */ }
-    setReady(true);
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
+      const rows = await fetchProducts({ id, signal: controller.signal });
+      if (controller.signal.aborted) return;
+      setDetail(rows[0] ?? null);
+      // Keep prices/names used by the cart in sync with the freshly read detail.
+      setProducts(previous => rows[0] ? previous.map(p => p.id === id ? rows[0] : p) : previous.filter(p => p.id !== id));
+      if (!rows[0]) setCart(previous => { const next = { ...previous }; delete next[id]; return next; });
+    } catch (cause) {
+      if (!controller.signal.aborted) setDetailError(cause instanceof Error ? cause.message : "Không thể tải chi tiết.");
+    } finally { if (!controller.signal.aborted) setDetailLoading(false); }
+  }
   useEffect(() => { if (ready) { try { localStorage.setItem("moc-cart", JSON.stringify(cart)); } catch {} } }, [cart, ready]);
   useEffect(() => { if (toast) { const timer = setTimeout(() => setToast(""), 2600); return () => clearTimeout(timer); } }, [toast]);
   useEffect(() => { if (searchOpen) search.current?.focus(); }, [searchOpen]);
   const count = Object.values(cart).reduce((a, b) => a + b, 0);
   const total = products.reduce((sum, p) => sum + p.price * (cart[p.id] || 0), 0);
-  const visible = products.filter(p => (category === "Tất cả" || p.category === category) && p.name.toLocaleLowerCase("vi").includes(query.toLocaleLowerCase("vi"))).sort((a, b) => sort === "low" ? a.price - b.price : sort === "high" ? b.price - a.price : a.id - b.id);
-  function change(id: number, delta: number) { setCart(previous => { const next = { ...previous, [id]: Math.min(99, Math.max(0, (previous[id] || 0) + delta)) }; if (!next[id]) delete next[id]; return next; }); }
+  const visible = products.filter(p => p.name.toLocaleLowerCase("vi").includes(query.toLocaleLowerCase("vi"))).sort((a, b) => sort === "low" ? a.price - b.price : sort === "high" ? b.price - a.price : a.id.localeCompare(b.id));
+  function change(id: string, delta: number) { setCart(previous => { const next = { ...previous, [id]: Math.min(99, Math.max(0, (previous[id] || 0) + delta)) }; if (!next[id]) delete next[id]; return next; }); }
   function openCart() { setOrdered(false); dialog.current?.showModal(); }
   return <>
     <div className="announcement"><Icon name="truck" size={15}/><span>Gửi chút yêu thương — Miễn phí vận chuyển cho đơn từ 499.000đ</span><span className="announcement-star">✳</span></div>
@@ -78,16 +102,26 @@ export default function Home() {
       </section>
       <section className="benefits wrap" aria-label="Cam kết của mộc"><div><Icon name="leaf"/><span>Chọn lọc từ những điều tốt</span></div><div><Icon name="truck"/><span>Giao hàng toàn quốc</span></div><div><Icon name="return"/><span>Đổi trả dễ dàng trong 7 ngày</span></div><div><Icon name="heart"/><span>Gói ghém bằng sự tận tâm</span></div></section>
       <section id="products" className="products-section wrap"><div className="section-heading"><div><div className="eyebrow">MỘT CHÚT MỘC, MỖI NGÀY</div><h2>Chọn cho mình một điều nhỏ</h2></div><span className="collection-note">Những món đồ bạn sẽ muốn dùng mỗi ngày.</span></div>
-        <div className="filters"><div className="category-tabs">{["Tất cả", "Phụ kiện", "Nhà & Đời sống", "Văn phòng phẩm"].map(c => <button key={c} className={category === c ? "selected" : ""} onClick={() => setCategory(c)}>{c}{c === "Tất cả" && <small>6</small>}</button>)}</div><label className="sort"><span>Sắp xếp:</span><select aria-label="Sắp xếp sản phẩm" value={sort} onChange={e => setSort(e.target.value)}><option value="featured">Nổi bật</option><option value="low">Giá tăng dần</option><option value="high">Giá giảm dần</option></select></label></div>
+        <div className="filters"><div className="category-tabs"><button className="selected">Tất cả <small>{products.length}</small></button></div><label className="sort"><span>Sắp xếp:</span><select aria-label="Sắp xếp sản phẩm" value={sort} onChange={e => setSort(e.target.value)}><option value="featured">Mặc định</option><option value="low">Giá tăng dần</option><option value="high">Giá giảm dần</option></select></label></div>
         {query && <p className="search-result">Kết quả cho “{query}” · {visible.length} sản phẩm</p>}
-        <div className="product-grid">{visible.map(p => <article className="product" key={p.id}><div className="product-image"><Image src={photo(p.image)} alt={p.name} fill unoptimized sizes="(max-width: 700px) 50vw, 33vw"/>{p.badge && <span className={`badge ${p.badge.startsWith("−") ? "sale" : ""}`}>{p.badge}</span>}<button className={`favorite ${favorites.includes(p.id) ? "is-favorite" : ""}`} aria-label={`${favorites.includes(p.id) ? "Bỏ yêu thích" : "Yêu thích"} ${p.name}`} aria-pressed={favorites.includes(p.id)} onClick={() => setFavorites(previous => previous.includes(p.id) ? previous.filter(id => id !== p.id) : [...previous, p.id])}><Icon name="heart" size={18}/></button><span className="image-brand">mộc.</span></div><div className="product-meta"><span>{p.category}</span><div className="swatches" aria-label="Bảng màu tham khảo">{p.colors.map(color => <span key={color} style={{ background: color }}/>)}</div></div><h3>{p.name}</h3><p className="product-note">{p.note}</p><div className="product-bottom"><div className="prices"><strong>{money(p.price)}</strong>{p.old > 0 && <del>{money(p.old)}</del>}</div><button className="add-button" aria-label={`Thêm ${p.name} vào giỏ`} onClick={() => { change(p.id, 1); setToast(`Đã thêm ${p.name} vào giỏ`); }}><Icon name="plus" size={17}/><span>Thêm vào giỏ</span></button></div></article>)}</div>
-        {!visible.length && <div className="empty"><Icon name="search" size={30}/><h3>Chưa tìm thấy món đồ phù hợp</h3><button onClick={() => { setQuery(""); setCategory("Tất cả"); }}>Xem tất cả sản phẩm</button></div>}
+        {loading && <div className="empty" role="status">Đang tải sản phẩm…</div>}
+        {error && <div className="empty" role="alert"><p>{error}</p><button onClick={retry}>Thử lại</button></div>}
+        {!loading && !error && <div className="product-grid">{visible.map(p => <article className="product" key={p.id} data-product-id={p.id}>
+          <div className="product-image"><button className="product-preview" aria-label={`Xem chi tiết ${p.name}`} onClick={() => openDetail(p.id)}><ProductImage key={p.image_url} product={p}/></button><button className={`favorite ${favorites.includes(p.id) ? "is-favorite" : ""}`} aria-label={`Yêu thích ${p.name}`} aria-pressed={favorites.includes(p.id)} onClick={() => setFavorites(previous => previous.includes(p.id) ? previous.filter(id => id !== p.id) : [...previous, p.id])}><Icon name="heart" size={18}/></button></div>
+          <h3><button className="product-title" onClick={() => openDetail(p.id)}>{p.name}</button></h3><div className="product-bottom"><div className="prices"><strong>{money(p.price)}</strong></div><button className="add-button" aria-label={`Thêm ${p.name} vào giỏ`} onClick={() => { change(p.id, 1); setToast(`Đã thêm ${p.name} vào giỏ`); }}><Icon name="plus" size={17}/><span>Thêm vào giỏ</span></button></div>
+        </article>)}</div>}
+        {!loading && !error && !visible.length && <div className="empty" role="status"><Icon name="search" size={30}/><h3>{products.length ? "Chưa tìm thấy món đồ phù hợp" : "Chưa có sản phẩm"}</h3>{query && <button onClick={() => setQuery("")}>Xem tất cả sản phẩm</button>}</div>}
         <div className="collection-end"><span/> Một bộ sưu tập nhỏ. Được chọn thật kỹ. <Icon name="leaf" size={16}/><span/></div>
       </section>
       <section className="story wrap" id="story"><div className="story-symbol">m<span>✳</span></div><div><div className="eyebrow">CHÚT TÂM TÌNH TỪ MỘC</div><h2>Không cần nhiều. Chỉ cần vừa đủ.</h2><p>Chúng mình tin rằng niềm vui nằm trong những điều rất nhỏ. Một chiếc ly yêu thích,<br className="desktop"/> một góc xanh trên bàn, hay chiếc túi cùng bạn đi khắp phố. Mộc ở đây, cùng bạn.</p></div><Icon name="leaf" size={64}/></section>
     </main>
     <footer id="footer" className="wrap"><div className="footer-main"><a href="#" className="logo">mộc<span>.</span></a><p>Giản đơn trong từng lựa chọn.</p><a href="mailto:hello@moc.example">Chào mộc một tiếng ↗</a></div><div className="footer-bottom"><span>© 2026 mộc. Được làm bằng sự tận tâm.</span><span>Cửa hàng mẫu · Giá hiển thị bằng VNĐ</span><span>Made with a little love ♡</span></div></footer>
     <div className={`toast ${toast ? "show" : ""}`} role="status"><Icon name="check" size={18}/>{toast}<button onClick={openCart}>Xem giỏ →</button></div>
-    <dialog ref={dialog} className="cart-dialog" onClick={e => { if (e.target === e.currentTarget) dialog.current?.close(); }}><div className="cart-panel"><div className="cart-heading"><div><span className="eyebrow">NHỮNG ĐIỀU BẠN ĐÃ CHỌN</span><h2>Giỏ hàng <small>({count})</small></h2></div><button className="icon-button" aria-label="Đóng giỏ hàng" onClick={() => dialog.current?.close()}><Icon name="close"/></button></div>{ordered ? <div className="empty order-success"><Icon name="check" size={48}/><h2>Cảm ơn bạn đã ghé mộc!</h2><p>Bạn đã hoàn tất trải nghiệm đặt hàng mẫu.<br/>Không có thanh toán hay giao hàng thực tế.</p><button className="primary-button" onClick={() => dialog.current?.close()}>Tiếp tục khám phá <Icon name="arrow"/></button></div> : count ? <><div className="shipping-progress"><p>{total >= 499000 ? "Giỏ hàng của bạn được miễn phí vận chuyển!" : `Thêm ${money(499000 - total)} để được miễn phí vận chuyển`}</p><div><span style={{ width: `${Math.min(total / 499000 * 100, 100)}%` }}/></div></div><div className="cart-items">{products.filter(p => cart[p.id]).map(p => <div className="cart-item" key={p.id}><Image src={photo(p.image, 200)} alt={p.name} width={85} height={100} unoptimized/><div><h3>{p.name}</h3><p>{money(p.price)}</p><div className="quantity"><button aria-label={`Giảm ${p.name}`} onClick={() => change(p.id, -1)}><Icon name="minus" size={14}/></button><span>{cart[p.id]}</span><button aria-label={`Tăng ${p.name}`} disabled={cart[p.id] >= 99} onClick={() => change(p.id, 1)}><Icon name="plus" size={14}/></button></div></div><button className="remove" aria-label={`Xóa ${p.name}`} onClick={() => setCart(previous => { const next = { ...previous }; delete next[p.id]; return next; })}><Icon name="close" size={16}/></button></div>)}</div><div className="cart-summary"><div><span>Tạm tính</span><strong>{money(total)}</strong></div><div><span>Phí vận chuyển</span><span>{total >= 499000 ? "Miễn phí" : money(30000)}</span></div><div className="total"><strong>Tổng cộng</strong><strong>{money(total + (total >= 499000 ? 0 : 30000))}</strong></div><button className="primary-button" onClick={() => { setOrdered(true); setCart({}); }}>Đặt hàng mẫu <Icon name="arrow"/></button><p>Trải nghiệm demo · Không thu tiền thực tế</p></div></> : <div className="empty"><Icon name="bag" size={45}/><h2>Giỏ hàng đang chờ bạn</h2><p>Thêm một điều nhỏ cho ngày thật đẹp.</p><button className="primary-button" onClick={() => dialog.current?.close()}>Khám phá sản phẩm <Icon name="arrow"/></button></div>}</div></dialog>
+    <dialog ref={dialog} className="cart-dialog" onClick={e => { if (e.target === e.currentTarget) dialog.current?.close(); }}><div className="cart-panel"><div className="cart-heading"><div><span className="eyebrow">NHỮNG ĐIỀU BẠN ĐÃ CHỌN</span><h2>Giỏ hàng <small>({count})</small></h2></div><button className="icon-button" aria-label="Đóng giỏ hàng" onClick={() => dialog.current?.close()}><Icon name="close"/></button></div>{loading || error ? <div className="empty" role="status">{loading ? "Đang tải dữ liệu giỏ hàng…" : "Chưa thể tải sản phẩm trong giỏ. Vui lòng đóng giỏ và thử lại."}</div> : ordered ? <div className="empty order-success"><Icon name="check" size={48}/><h2>Cảm ơn bạn đã ghé mộc!</h2><p>Bạn đã hoàn tất trải nghiệm đặt hàng mẫu.<br/>Không có thanh toán hay giao hàng thực tế.</p><button className="primary-button" onClick={() => dialog.current?.close()}>Tiếp tục khám phá <Icon name="arrow"/></button></div> : count ? <><div className="shipping-progress"><p>{total >= 499000 ? "Giỏ hàng của bạn được miễn phí vận chuyển!" : `Thêm ${money(499000 - total)} để được miễn phí vận chuyển`}</p><div><span style={{ width: `${Math.min(total / 499000 * 100, 100)}%` }}/></div></div><div className="cart-items">{products.filter(p => cart[p.id]).map(p => <div className="cart-item" key={p.id}><div className="cart-product-image"><ProductImage key={p.image_url} product={p}/></div><div><h3>{p.name}</h3><p>{money(p.price)}</p><div className="quantity"><button aria-label={`Giảm ${p.name}`} onClick={() => change(p.id, -1)}><Icon name="minus" size={14}/></button><span>{cart[p.id]}</span><button aria-label={`Tăng ${p.name}`} disabled={cart[p.id] >= 99} onClick={() => change(p.id, 1)}><Icon name="plus" size={14}/></button></div></div><button className="remove" aria-label={`Xóa ${p.name}`} onClick={() => setCart(previous => { const next = { ...previous }; delete next[p.id]; return next; })}><Icon name="close" size={16}/></button></div>)}</div><div className="cart-summary"><div><span>Tạm tính</span><strong>{money(total)}</strong></div><div><span>Phí vận chuyển</span><span>{total >= 499000 ? "Miễn phí" : money(30000)}</span></div><div className="total"><strong>Tổng cộng</strong><strong>{money(total + (total >= 499000 ? 0 : 30000))}</strong></div><button className="primary-button" onClick={() => { setOrdered(true); setCart({}); }}>Đặt hàng mẫu <Icon name="arrow"/></button><p>Trải nghiệm demo · Không thu tiền thực tế</p></div></> : <div className="empty"><Icon name="bag" size={45}/><h2>Giỏ hàng đang chờ bạn</h2><p>Thêm một điều nhỏ cho ngày thật đẹp.</p><button className="primary-button" onClick={() => dialog.current?.close()}>Khám phá sản phẩm <Icon name="arrow"/></button></div>}</div></dialog>
+    <dialog ref={detailDialog} className="cart-dialog" aria-labelledby="detail-title" onClose={() => detailRequest.current?.abort()} onClick={e => { if (e.target === e.currentTarget) detailDialog.current?.close(); }}>
+      <div className="cart-panel"><div className="cart-heading"><h2 id="detail-title">Chi tiết sản phẩm</h2><button className="icon-button" aria-label="Đóng chi tiết" onClick={() => detailDialog.current?.close()}><Icon name="close"/></button></div>
+        {detailLoading ? <p role="status">Đang tải chi tiết…</p> : detailError ? <div role="alert"><p>{detailError}</p><button onClick={() => openDetail(detailId.current)}>Thử lại</button></div> : detail ? <><div className="product-image"><ProductImage key={detail.image_url} product={detail}/></div><h3>{detail.name}</h3><p>{money(detail.price)}</p><button className="primary-button" onClick={() => { change(detail.id, 1); setToast(`Đã thêm ${detail.name} vào giỏ`); detailDialog.current?.close(); }}>Thêm vào giỏ <Icon name="plus"/></button></> : <p role="status">Sản phẩm không còn tồn tại hoặc không được phép xem.</p>}
+      </div>
+    </dialog>
   </>;
 }

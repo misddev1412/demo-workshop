@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "mộc. — Những điều nhỏ, một ngày thật đẹp",
-  description: "Cùng mộc chọn những món đồ giản đơn, tinh tế cho cuộc sống mỗi ngày. Cửa hàng mẫu với 6 sản phẩm và giỏ hàng tiện lợi.",
+  description: "Cùng mộc chọn những món đồ giản đơn, tinh tế cho cuộc sống mỗi ngày. Khám phá sản phẩm và giỏ hàng tiện lợi.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
