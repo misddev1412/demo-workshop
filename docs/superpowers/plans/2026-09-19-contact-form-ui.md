@@ -16,7 +16,7 @@
 - Create: `lib/contact.ts`
 - Create: `tests/contact.test.mjs`
 
-- [ ] **Step 1: Write the failing validation tests**
+- [x] **Step 1: Write the failing validation tests**
 
 ```js
 import { test } from 'node:test';
@@ -36,12 +36,12 @@ test('accepts a complete contact message', () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run: `node --conditions=react-server --experimental-strip-types --test tests/contact.test.mjs`
 Expected: FAIL because `lib/contact.ts` does not exist.
 
-- [ ] **Step 3: Implement the pure validator**
+- [x] **Step 3: Implement the pure validator**
 
 ```ts
 export type ContactFields = { name: string; contact: string; message: string };
@@ -56,7 +56,7 @@ export function validateContact(fields: ContactFields): ContactErrors {
 }
 ```
 
-- [ ] **Step 4: Run the focused test and verify GREEN**
+- [x] **Step 4: Run the focused test and verify GREEN**
 
 Run: `node --conditions=react-server --experimental-strip-types --test tests/contact.test.mjs`
 Expected: 2 passing tests.
@@ -67,15 +67,15 @@ Expected: 2 passing tests.
 - Create: `app/components/contact-form.tsx`
 - Modify: `app/page.tsx`
 
-- [ ] **Step 1: Create the client component**
+- [x] **Step 1: Create the client component**
 
 Implement `ContactForm` with controlled `name`, `contact`, and `message` fields; call `validateContact` on submit; focus the first invalid field; use `aria-invalid`, `aria-describedby`, and `role="alert"`; simulate submission with a short timer and show wording that does not claim server persistence; provide a reset action.
 
-- [ ] **Step 2: Render the component before the footer**
+- [x] **Step 2: Render the component before the footer**
 
 Import `ContactForm` into `app/page.tsx`, render it after the story section, and change the header “Kết nối” link to `#contact`.
 
-- [ ] **Step 3: Verify static behavior**
+- [x] **Step 3: Verify static behavior**
 
 Run: `npm run lint`
 Expected: exit 0 with no lint errors.
@@ -85,15 +85,15 @@ Expected: exit 0 with no lint errors.
 **Files:**
 - Modify: `app/globals.css`
 
-- [ ] **Step 1: Add desktop styles**
+- [x] **Step 1: Add desktop styles**
 
 Add a two-column `.contact-section`, restrained editorial copy, underlined input surfaces, visible focus states, inline errors, submit state, and a quiet success panel using the existing green/cream palette.
 
-- [ ] **Step 2: Add mobile styles**
+- [x] **Step 2: Add mobile styles**
 
 At the existing `max-width: 700px` breakpoint, stack the section, reduce spacing and type scale, and keep every control at least 44px tall.
 
-- [ ] **Step 3: Respect reduced motion**
+- [x] **Step 3: Respect reduced motion**
 
 Keep all contact transitions covered by the existing `prefers-reduced-motion` override.
 
@@ -102,17 +102,17 @@ Keep all contact transitions covered by the existing `prefers-reduced-motion` ov
 **Files:**
 - Modify: `docs/superpowers/plans/2026-09-19-contact-form-ui.md`
 
-- [ ] **Step 1: Run all automated checks**
+- [x] **Step 1: Run all automated checks**
 
 Run: `npm test && npm run lint && npm run build`
 Expected: all tests pass, lint exits 0, and Next.js production build exits 0.
 
-- [ ] **Step 2: Inspect the final diff**
+- [x] **Step 2: Inspect the final diff**
 
 Run: `git diff --check && git status --short`
 Expected: no whitespace errors; only the planned implementation files plus the user's pre-existing `README.md` change are present.
 
-- [ ] **Step 3: Commit the implementation**
+- [x] **Step 3: Commit the implementation**
 
 ```bash
 git add app/components/contact-form.tsx app/page.tsx app/globals.css lib/contact.ts tests/contact.test.mjs docs/superpowers/plans/2026-09-19-contact-form-ui.md

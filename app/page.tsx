@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { fetchProducts, restoreCart, type Product, type Cart } from "../lib/products";
 import CheckoutForm from "./components/checkout-form";
+import ContactForm from "./components/contact-form";
 import { shippingFee, type OrderReceipt } from "../lib/checkout";
 
 type IconName = "bag" | "search" | "arrow" | "leaf" | "truck" | "return" | "heart" | "close" | "plus" | "minus" | "check";
@@ -100,7 +101,7 @@ export default function Home() {
     <div className="announcement"><Icon name="truck" size={15}/><span>Gửi chút yêu thương — Miễn phí vận chuyển cho đơn từ 499.000đ</span><span className="announcement-star">✳</span></div>
     <header className="header wrap">
       <a className="logo" href="#" aria-label="mộc. Trang chủ">mộc<span>.</span><i>EVERYDAY, MINDFULLY</i></a>
-      <nav aria-label="Điều hướng chính"><a className="active" href="#products">Cửa hàng</a><a href="#story">Câu chuyện của mộc</a><a href="#footer">Kết nối</a></nav>
+      <nav aria-label="Điều hướng chính"><a className="active" href="#products">Cửa hàng</a><a href="#story">Câu chuyện của mộc</a><a href="#contact">Kết nối</a></nav>
       <div className="header-actions"><button className="icon-button" aria-label="Tìm sản phẩm" onClick={() => setSearchOpen(!searchOpen)}><Icon name="search"/></button><span className="divider"/><button className="cart-button" aria-label={`Giỏ hàng, ${count} sản phẩm`} onClick={openCart}><Icon name="bag"/><span>Giỏ hàng</span><b>{count}</b></button></div>
     </header>
     {searchOpen && <div className="search-bar wrap"><Icon name="search"/><input ref={search} placeholder="Tìm một điều nhỏ xinh…" aria-label="Tìm kiếm sản phẩm" value={query} onChange={e => { setQuery(e.target.value); document.getElementById("products")?.scrollIntoView({ behavior: "smooth" }); }}/><button className="icon-button" aria-label="Đóng tìm kiếm" onClick={() => { setSearchOpen(false); setQuery(""); }}><Icon name="close"/></button></div>}
@@ -123,6 +124,15 @@ export default function Home() {
         <div className="collection-end"><span/> Một bộ sưu tập nhỏ. Được chọn thật kỹ. <Icon name="leaf" size={16}/><span/></div>
       </section>
       <section className="story wrap" id="story"><div className="story-symbol">m<span>✳</span></div><div><div className="eyebrow">CHÚT TÂM TÌNH TỪ MỘC</div><h2>Không cần nhiều. Chỉ cần vừa đủ.</h2><p>Chúng mình tin rằng niềm vui nằm trong những điều rất nhỏ. Một chiếc ly yêu thích,<br className="desktop"/> một góc xanh trên bàn, hay chiếc túi cùng bạn đi khắp phố. Mộc ở đây, cùng bạn.</p></div><Icon name="leaf" size={64}/></section>
+      <section className="contact-section wrap" id="contact">
+        <div className="contact-intro">
+          <div className="eyebrow"><span/> KẾT NỐI CÙNG MỘC</div>
+          <h2>Một lời nhắn nhỏ.<br/><em>Mộc luôn lắng nghe.</em></h2>
+          <p>Cần hỏi về sản phẩm, đơn hàng, hay chỉ muốn gửi một lời chào? Kể mộc nghe nhé.</p>
+          <div className="contact-note"><span>01</span><p>Mộc thường hồi âm trong vòng một ngày làm việc.</p></div>
+        </div>
+        <ContactForm/>
+      </section>
     </main>
     <footer id="footer" className="wrap"><div className="footer-main"><a href="#" className="logo">mộc<span>.</span></a><p>Giản đơn trong từng lựa chọn.</p><a href="mailto:hello@moc.example">Chào mộc một tiếng ↗</a></div><div className="footer-bottom"><span>© 2026 mộc. Được làm bằng sự tận tâm.</span><span>Cửa hàng mẫu · Giá hiển thị bằng VNĐ</span><span>Made with a little love ♡</span></div></footer>
     <div className={`toast ${toast ? "show" : ""}`} role="status"><Icon name="check" size={18}/>{toast}<button onClick={openCart}>Xem giỏ →</button></div>
