@@ -60,13 +60,12 @@ Không thay đổi schema hoặc policy trong lần tích hợp này.
 Danh sách được truy vấn khi trang mount; cửa sổ chi tiết truy vấn lại theo UUID mỗi lần mở.
 Mọi truy vấn dùng `cache: 'no-store'`, không lưu catalog trong localStorage hoặc Next cache.
 Tải lại trang lấy tên/giá mới từ database. Giỏ lưu UUID và số lượng, đối chiếu lại với
-catalog sau khi tải thành công; lỗi truy vấn không xóa giỏ đã lưu. Đặt hàng vẫn là demo,
-không tạo đơn hoặc thực hiện thanh toán.
+catalog sau khi tải thành công; lỗi truy vấn không xóa giỏ đã lưu. Đặt hàng COD tạo đơn thật trong database; khách thanh toán khi nhận hàng.
 
 Kiểm tra:
 
 ```bash
-node --experimental-strip-types --test tests/products.test.mjs
+npm test
 npm run lint
 npm run build
 ```
@@ -74,3 +73,53 @@ npm run build
 Kiểm thử browser nên bao gồm: danh sách → chi tiết → thêm giỏ → tải lại;
 chặn request `*/rest/v1/products*` để kiểm tra lỗi/thử lại; trả `[]` để kiểm tra trạng thái trống.
 Dữ liệu mô phỏng chỉ dùng trong kiểm thử, không có fallback trong ứng dụng.
+
+
+## Đặt hàng COD
+
+Khách mở giỏ → **Tiến hành đặt hàng** → nhập tên, số di động Việt Nam và địa chỉ
+→ **Xác nhận đặt hàng**. Thành công hiển thị mã đơn và tổng tiền, sau đó xóa giỏ.
+Lỗi giữ nguyên giỏ và thông tin để thử lại. Không yêu cầu tài khoản, không có
+thanh toán online hoặc kết nối đơn vị giao vận.
+
+`POST /api/orders` gọi `public.place_cod_order(jsonb)` bằng khóa server. Giá và
+phí ship được tính trong database: 30.000đ dưới 499.000đ, miễn phí từ 499.000đ.
+Nếu tổng tiền thay đổi, khách phải cập nhật giỏ và kiểm tra trước khi gửi lại.
+Đơn và chi tiết được ghi trong một giao dịch. RPC chỉ cho phép `service_role`;
+quyền đọc/quản lý đơn của admin và RLS hiện có được giữ nguyên.
+
+Thêm biến **chỉ dành cho server** vào `.env.local` và môi trường deploy:
+
+```dotenv
+SUPABASE_SECRET_KEY=sb_secret_...
+```
+
+Lấy từ Supabase Settings → API Keys. Không thêm tiền tố `NEXT_PUBLIC_` cho khóa
+này. Danh mục vẫn dùng publishable key. Nếu thiếu khóa server, API trả lỗi 503
+và không xóa giỏ. Không commit `.env.local`.
+
+Migration `supabase/migrations/20260919022211_add_guest_cod_checkout.sql` đã được
+áp dụng lên project demo `ibrmkqkaxecglnvehzit`. Với project khác, cần áp dụng
+migration danh mục/đơn hàng trước, rồi migration checkout này.
+
+API nhận `recipient_name`, `recipient_phone`, `shipping_address`, `items`
+(`product_id`, `quantity`), `expected_total` và `idempotency_key` (UUID).
+`expected_total` chỉ dùng phát hiện giá cũ. Server bỏ qua giá do client gửi.
+Giới hạn: 50 loại sản phẩm, 1–99 mỗi loại, request tối đa 16 KiB.
+
+Cùng mã yêu cầu và dữ liệu đã chuẩn hóa trả lại cùng đơn, kể cả khi giá sản
+phẩm đã thay đổi. Client lưu hash thông tin, UUID và tổng tiền ban đầu trong
+sessionStorage để thử lại khi mất phản hồi, không lưu tên/điện thoại/địa chỉ.
+Thay đổi người nhận hoặc sản phẩm được xem là yêu cầu mua mới. Mã đã dùng với
+thông tin khác bị từ chối. Không có API công khai để liệt kê hoặc tra cứu đơn.
+
+Kiểm thử database (dùng connection owner của môi trường kiểm thử):
+
+```bash
+psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/checkout.sql
+psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/access_control.sql
+```
+
+Các fixture SQL đều rollback. `npm test` chạy cả kiểm thử danh mục, validation,
+API và giữ mã retry qua thay đổi giá. Chi tiết kiểm chứng tại
+`docs/checkout-verification.md`.
