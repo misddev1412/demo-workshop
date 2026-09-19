@@ -31,10 +31,29 @@ values ('<existing-auth-user-uuid>'::uuid)
 on conflict (user_id) do nothing;
 ```
 
-Ordinary clients cannot directly create orders. A future checkout endpoint must
-validate products and compute prices/totals server-side before writing orders.
+Ordinary clients cannot directly create orders. `POST /api/orders` now calls the
+service-only `place_cod_order(jsonb)` RPC, which validates products and computes
+prices/totals before atomically writing orders and items.
 
 Security advisor results: INFO for the deliberately policy-free private
 allowlist, and two WARN findings on pre-existing `public.rls_auto_enable()`
 being executable by anon/authenticated. That function was not changed here.
 See https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable
+
+
+## Guest COD checkout
+
+Applied `20260919022211_add_guest_cod_checkout.sql` on 2026-09-19. It adds
+`checkout_key` (unique UUID), a request fingerprint, `shipping_fee`, and COD
+`payment_method` to orders. The SECURITY INVOKER RPC is executable only by
+service_role. Existing admin RLS and private allowlist are unchanged.
+
+`tests/checkout.sql` verifies database prices, shipping threshold, replay after
+price changes, conflicting retry keys, invalid quantities/recipient fields,
+unavailable products and forced item-insert failure rolling back its order.
+All fixtures rollback. Both this test and `tests/access_control.sql` passed on
+local PostgreSQL 16 and the configured Supabase project.
+
+Security advisors after checkout report the same pre-existing allowlist INFO
+and `public.rls_auto_enable()` warnings documented above; no checkout-specific
+finding. See `../docs/checkout-verification.md` for complete evidence.
